@@ -48,6 +48,19 @@ function callQwen(prompt: string): string {
   return parsed.response.trim();
 }
 
+function ask(question: string): Promise<string> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  return new Promise(resolve => {
+    rl.question(question, answer => {
+      rl.close();
+      resolve(answer.trim());
+    });
+  });
+}
 
 function resolveProjectDir(args: string[]): string {
   const pathArg = args.find(a => !a.startsWith("--"));
@@ -77,50 +90,84 @@ function writeFileSafe(filePath: string, content: string, force: boolean) {
   fs.writeFileSync(filePath, content, "utf-8");
 }
 
-function handleInit(args: string[]) {
+async function handleInit(args: string[]) {
   printHeader();
 
   const flags = new Set(args.filter(a => a.startsWith("--")));
   const force = flags.has("--force");
   const noGit = flags.has("--no-git");
-  const here = flags.has("--here");
 
   const pathArg = args.find(a => !a.startsWith("--"));
+  if (!pathArg) {
+    console.error("❌ Please specify a target directory or use '.'");
+    process.exit(1);
+  }
 
-  const targetDir = here || !pathArg || pathArg === "."
-    ? process.cwd()
-    : path.resolve(process.cwd(), pathArg);
+  const targetDir = path.resolve(process.cwd(), pathArg);
+  const exists = fs.existsSync(targetDir);
 
-  // Prevent accidental overwrite
+  // Create directory if missing
+  if (!exists) {
+    fs.mkdirSync(targetDir, { recursive: true });
+    console.log(`📁 Created project folder: ${path.basename(targetDir)}`);
+  }
+
   const specaiDir = path.join(targetDir, "specai");
   const dotSpecaiDir = path.join(targetDir, ".specai");
 
   if ((fs.existsSync(specaiDir) || fs.existsSync(dotSpecaiDir)) && !force) {
-    console.error("SpecAI already initialized in this directory.");
+    console.error("❌ SpecAI already initialized here.");
     console.error("Use --force to overwrite.");
     process.exit(1);
   }
+
+  // Determine project name
+  let projectName = exists
+    ? await ask("Project name: ")
+    : path.basename(targetDir);
+
+  // Ask for description
+  const projectDescription = await ask(
+    "Brief project description (used as global context): "
+  );
+
+  console.log("\nModels configured:");
+  console.log("- Qwen (planner / reasoning)");
+  console.log("- DeepSeek Coder (code generation)\n");
 
   // Create directories
   ensureDir(specaiDir);
   ensureDir(dotSpecaiDir);
 
-  // Write constitution
+  // Write config
+  writeFileSafe(
+    path.join(dotSpecaiDir, "config.json"),
+    JSON.stringify(
+      {
+        project: {
+          name: projectName,
+          description: projectDescription
+        },
+        models: {
+          planner: "qwen2.5:7b",
+          coder: "deepseek-coder:6.7b"
+        }
+      },
+      null,
+      2
+    ),
+    force
+  );
+
+  // Write constitution scaffold
   writeFileSafe(
     path.join(specaiDir, "constitution.md"),
     `# Constitution
 
-## Purpose
-Define the governing principles for this project.
+This document defines the governing assumptions, constraints, and worldview
+for the project.
 
-## Authority
-This document overrides all other instructions.
-
-## AI Usage
-AI assists but does not decide.
-
-## Review
-All outputs require human approval.
+It is expected to evolve before being approved and locked.
 `,
     force
   );
@@ -144,30 +191,17 @@ All outputs require human approval.
     force
   );
 
-  // Write config
-  writeFileSafe(
-    path.join(dotSpecaiDir, "config.json"),
-    JSON.stringify(
-      {
-        version: "0.1.0"
-      },
-      null,
-      2
-    ),
-    force
-  );
-
-  // Initialize git unless skipped
+  // Git init
   if (!noGit && !fs.existsSync(path.join(targetDir, ".git"))) {
     try {
       require("child_process").execSync("git init", { cwd: targetDir });
-      console.log("Initialized git repository.");
+      console.log("📦 Git repository initialized.");
     } catch {
-      console.warn("Git initialization failed or git not available.");
+      console.warn("⚠️ Git initialization failed.");
     }
   }
 
-  console.log("SpecAI project initialized successfully.");
+  console.log("\n✅ SpecAI project initialized.");
 }
 
 function handleStatus() {
@@ -280,7 +314,7 @@ function handleUnlockConstitution(args: string[]) {
   console.log("🔓 Constitution unlocked.");
 }
 
-function main() {
+async function main() {
   const args = process.argv.slice(2);
   const command = args[0];
 
@@ -292,7 +326,7 @@ function main() {
 
     switch (command) {
     case "init":
-        handleInit(args.slice(1));
+        await handleInit(args.slice(1));
         break;
 
     case "status":
