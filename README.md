@@ -2,24 +2,43 @@
 
 SpecAI is a **local-first, spec-driven AI development framework**, inspired by GitHub Spec Kit.
 
-It treats **documents as the source of truth**, **AI as a document transformer**, and **humans as the final authority**.
+It treats:
+- **Documents as the source of truth**
+- **AI as a document transformer**
+- **Humans as the final authority**
 
-🚧 This project is under active development. Expect breaking changes.
+---
 
-## Core Ideas
+## Development Lifecycle
 
-- Spec-driven lifecycle  
-  Constitution → Spec → Plan → Tasks → Implement → Review
-- Documents on disk are the only memory
-- AI assists but never approves
+Constitution → Spec → Plan → Tasks → Implement → Review
+
+Each phase produces concrete artifacts on disk.
+Nothing relies on chat history or hidden state.
+
+---
+
+## Core Principles
+
+- Document-first workflow
+- Human approval gates at every phase
 - Local LLM–first (Ollama, Qwen, DeepSeek)
 - Model-agnostic by design
-- Explicit human approval gates
+- No autonomous agents
+- No hidden memory
+
+---
 
 ## Status
 
-Coming soon. The CLI foundation is currently being built.
+🚧 **Coming soon**
+
+The CLI foundation is being built incrementally with strict checkpoints.
+
+Expect breaking changes until v0.1.
+
+---
 
 ## Inspiration
 
-Inspired by GitHub Spec Kit, but implemented from scratch and without dependence on Copilot or hosted AI APIs.
+Conceptually inspired by GitHub Spec Kit, but implemented from scratch without Copilot or hosted AI dependencies.
